@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Archery Game</title>
+    <!--link rel="stylesheet" href="style.css"-->
+    <style>
+        body {
+            margin: 0;
+            background: skyblue; 
+        }
+
+        #bow {
+            position: absolute;
+            background-image: url("bird.avif");
+            background-size: contain;
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            transform-origin: center center;
+            top: 50%;
+            left: 10px;
+
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <div id="ui-layer">
+            Score: <span id="score">0</span> | Time: <span id="time">60</span>
+        </div>
+
+        <div id="target" class="target">
+
+        </div>
+        <div id="bow" class="bow"></div>
+        <div id="arrow" class="arrow"></div>
+    </div>
+
+
+
+
+
+
+
+
+    <script >
+        
+
+        function StartGame(){
+            document.addEventListener("mousemove" , event =>{
+                RotateBow( event.clientX, event.clientY)
+            });
+           
+        }
+        function RotateBow(X, Y)
+        {   
+            const bow = document.getElementById("bow");
+            const rect = bow.getBoundingClientRect();
+            //const bowX = rect.left;
+            //const bowY = rect.top;
+            
+            const centreBowX = (rect.left + rect.width)/2;
+            const centreBowY = (rect.top + rect.height)/2;
+
+            // angle between mouse and bow
+            const P = X - centreBowX;
+            const B = Y - centreBowY;
+
+            const angle = Math.atan2(B,P);
+            bow.style.transform = `rotate(${angle}rad)`;
+            
+        }
+        StartGame()
+    </script>
+</body>
+</html>
