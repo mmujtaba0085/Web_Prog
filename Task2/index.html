@@ -3,80 +3,256 @@
 <head>
     <meta charset="UTF-8">
     <title>Archery Game</title>
-    <!--link rel="stylesheet" href="style.css"-->
 <style>
     body {
         margin: 0;
         background: skyblue; 
+        font-family: Arial, sans-serif;
+    }
+
+    #game-container {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+        overflow: hidden;
+    }
+
+    #ui-layer {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        font-size: 24px;
+        font-weight: bold;
+        color: white;
+        text-shadow: 2px 2px 4px black;
+        z-index: 10;
     }
 
     #bow {
         position: absolute;
-        background-image: url("bird.avif");
+        background-image: url("archer.png");
         background-size: contain;
-        width: 100px;
-        height: 100px;
+        width: 80px;
+        height: 90px;
         transform-origin: center center;
         top: 50%;
         left: 10px;
+        pointer-events: none;
     }
 
     #arrow {
         position: absolute;
-        background-color: brown; /* or use background-image: url(bird.avif); */
+        background-color: brown;
         background-size: contain;
-        width: 50px;  /* Make it visible */
+        width: 50px;
         height: 5px;
-        display: none; /* Hide until shot */
+        display: none;
+        pointer-events: none;
+    }
+
+    #bird {
+        position: absolute;
+        background-image: url("bird.avif");
+        background-size: contain;
+        background-repeat: no-repeat;
+        width: 80px;
+        height: 80px;
+        right: 100px;
+        top: 50%;
+        transition: width 0.3s, height 0.3s;
+    }
+
+    /* Start Screen */
+    #startScreen {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0, 0, 0, 0.9);
+        color: white;
+        padding: 40px;
+        border-radius: 15px;
+        text-align: center;
+        z-index: 100;
+    }
+
+    #startScreen h1 {
+        margin: 0 0 20px 0;
+        font-size: 48px;
+    }
+
+    #startScreen p {
+        font-size: 24px;
+        margin: 10px 0;
+    }
+
+    /* Game Over Screen */
+    #gameOverScreen {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0, 0, 0, 0.9);
+        color: white;
+        padding: 40px;
+        border-radius: 15px;
+        text-align: center;
+        display: none;
+        z-index: 100;
+    }
+
+    #gameOverScreen h1 {
+        margin: 0 0 20px 0;
+        font-size: 48px;
+    }
+
+    #gameOverScreen p {
+        font-size: 24px;
+        margin: 10px 0;
+    }
+
+    #restartBtn {
+        margin-top: 20px;
+        padding: 15px 30px;
+        font-size: 20px;
+        background: #4CAF50;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: background 0.3s;
+    }
+
+    #restartBtn:hover {
+        background: #45a049;
     }
 </style>
 </head>
 <body>
 
     <div id="game-container">
+        <!-- UI displaying score and time -->
         <div id="ui-layer">
             Score: <span id="score">0</span> | Time: <span id="time">60</span>
         </div>
 
-        <div id="target" class="target">
-
+        <!-- Start Screen -->
+        <div id="startScreen">
+            <h1>🏹 Archery Game</h1>
+            <p>Move mouse to aim</p>
+            <p>Click to shoot arrows</p>
+            <p>Hit the moving bird!</p>
+            <p style="margin-top: 30px; font-size: 20px; color: #4CAF50;">Click anywhere to start</p>
         </div>
+
+        <!-- Game elements -->
+        <div id="bird" class="bird"></div>
         <div id="bow" class="bow"></div>
         <div id="arrow" class="arrow"></div>
+
+        <!-- Game Over Screen -->
+        <div id="gameOverScreen">
+            <h1>Game Over!</h1>
+            <p>Final Score: <span id="finalScore">0</span></p>
+            <button id="restartBtn">Play Again</button>
+        </div>
     </div>
 
-
-
-
-
-
-
-
     <script>
+    // ============================================
+    // DOM ELEMENT SELECTION
+    // ============================================
     const arrow = document.getElementById("arrow");
     const bow = document.getElementById("bow");
+    const bird = document.getElementById("bird");
+    const scoreDisplay = document.getElementById("score");
+    const timeDisplay = document.getElementById("time");
+    const startScreen = document.getElementById("startScreen");
+    const gameOverScreen = document.getElementById("gameOverScreen");
+    const finalScoreDisplay = document.getElementById("finalScore");
+    const restartBtn = document.getElementById("restartBtn");
 
+    // ============================================
+    // GAME STATE VARIABLES
+    // ============================================
     let shooting = false;
     let arrowX = 0;
     let arrowY = 0;
     let velocityX = 0;
     let velocityY = 0;
     let currentAngle = 0;
+    let score = 0;
+    let timeLeft = 60;
+    let gameOver = false;
+    let gameStarted = false;  // NEW: Tracks if game has been started
+    let timerInterval = null;
 
-    function StartGame(){
+    // Bird movement variables
+    let birdY = window.innerHeight / 2;
+    let birdDirection = 1;
+    let birdSpeed = 2;
+    let birdWidth = 80;
+    let birdHeight = 80;
+
+    // ============================================
+    // GAME INITIALIZATION
+    // ============================================
+    /**
+     * StartGame - Initializes the game
+     * Sets up event listeners and starts game loop
+     */
+    function StartGame() {
+        // Mouse move listener - always active for bow rotation
         document.addEventListener("mousemove", event => {
-            currentAngle = RotateBow(event.clientX, event.clientY);
-        });
-        
-        document.addEventListener("click", e => {
-            if (!shooting) {  // Only shoot if no arrow in flight
-                shootArrow();
+            if (gameStarted && !gameOver) {
+                currentAngle = RotateBow(event.clientX, event.clientY);
             }
         });
+        
+        // Click listener - handles both starting game and shooting
+        document.addEventListener("click", handleClick);
 
+        // Restart button click handler
+        restartBtn.addEventListener("click", resetGame);
+
+        // Start the game loop (but bird won't move until game starts)
         requestAnimationFrame(gameLoop);
     }
 
+    // ============================================
+    // CLICK HANDLER
+    // ============================================
+    /**
+     * handleClick - Handles all click events
+     * - If game not started: starts the game
+     * - If game started: shoots arrow
+     */
+    function handleClick(e) {
+        // If game hasn't started yet, start it
+        if (!gameStarted) {
+            gameStarted = true;
+            // Hide start screen with fade effect
+            startScreen.style.display = "none";
+            // Start the countdown timer
+            startTimer();
+            return; // Don't shoot arrow on first click
+        }
+        
+        // If game is running, shoot arrow
+        if (!shooting && !gameOver) {
+            shootArrow();
+        }
+    }
+
+    // ============================================
+    // BOW ROTATION
+    // ============================================
+    /**
+     * RotateBow - Rotates bow to point at mouse cursor
+     * @param {number} X - Mouse X coordinate
+     * @param {number} Y - Mouse Y coordinate
+     * @returns {number} - Angle in radians
+     */
     function RotateBow(X, Y) {
         const rect = bow.getBoundingClientRect();
         const centreBowX = rect.left + rect.width / 2;
@@ -87,11 +263,18 @@
 
         const angle = Math.atan2(B, P);
         bow.style.transform = `rotate(${angle}rad)`;
-        return angle;  // Return angle for shooting
+        return angle;
     }
 
+    // ============================================
+    // ARROW SHOOTING
+    // ============================================
+    /**
+     * shootArrow - Launches arrow from bow in current direction
+     */
     function shootArrow() {
         const rect = bow.getBoundingClientRect();
+        
         arrowX = rect.left + rect.width / 2;
         arrowY = rect.top + rect.height / 2;
         
@@ -104,26 +287,191 @@
         arrow.style.transform = `rotate(${currentAngle}rad)`;
     }
 
-    function gameLoop() {
-        if (shooting) {
-            arrowX += velocityX;
-            arrowY += velocityY;
+    // ============================================
+    // TIMER MANAGEMENT
+    // ============================================
+    /**
+     * startTimer - Starts countdown timer
+     * Uses setInterval to decrease time every second
+     */
+    function startTimer() {
+        timerInterval = setInterval(() => {
+            if (!gameOver && gameStarted) {
+                timeLeft--;
+                timeDisplay.textContent = timeLeft;
+                
+                if (timeLeft <= 0) {
+                    stopGame();
+                }
+            }
+        }, 1000);
+    }
 
-            // Check if off-screen
-            if (arrowX > window.innerWidth || arrowX < 0 || 
-                arrowY > window.innerHeight || arrowY < 0) {
-                shooting = false;
-                arrow.style.display = "none";
-            } else {
-                arrow.style.left = arrowX + "px";
-                arrow.style.top = arrowY + "px";
+    // ============================================
+    // BIRD MOVEMENT
+    // ============================================
+    /**
+     * moveBird - Moves bird up and down continuously
+     * Only moves if game has started and not ended
+     */
+    function moveBird() {
+        // Don't move bird if game hasn't started or has ended
+        if (!gameStarted || gameOver) return;
+        
+        birdY += birdSpeed * birdDirection;
+
+        if (birdY <= 50 || birdY >= window.innerHeight - 130) {
+            birdDirection *= -1;
+        }
+
+        bird.style.top = birdY + "px";
+    }
+
+    // ============================================
+    // COLLISION DETECTION
+    // ============================================
+    /**
+     * checkCollision - Detects if arrow hits bird
+     * Uses rectangle overlap detection (AABB collision)
+     */
+    function checkCollision() {
+        if (!shooting) return;
+        
+        const arrowRect = arrow.getBoundingClientRect();
+        const birdRect = bird.getBoundingClientRect();
+
+        if (arrowRect.left < birdRect.right &&
+            arrowRect.right > birdRect.left &&
+            arrowRect.top < birdRect.bottom &&
+            arrowRect.bottom > birdRect.top) {
+            
+            updateScore();
+            
+            shooting = false;
+            arrow.style.display = "none";
+
+            birdY = Math.random() * (window.innerHeight - 200) + 100;
+            
+            increaseDifficulty();
+        }
+    }
+
+    // ============================================
+    // SCORE MANAGEMENT
+    // ============================================
+    /**
+     * updateScore - Increases and displays score
+     */
+    function updateScore() {
+        score++;
+        scoreDisplay.textContent = score;
+    }
+
+    // ============================================
+    // DIFFICULTY PROGRESSION
+    // ============================================
+    /**
+     * increaseDifficulty - Makes game harder as score increases
+     * - Increases bird speed
+     * - Decreases bird size
+     */
+    function increaseDifficulty() {
+        if (birdSpeed < 6) {
+            birdSpeed += 0.1;
+        }
+        
+        if (score % 3 === 0 && birdWidth > 40) {
+            birdWidth -= 2;
+            birdHeight -= 2;
+            bird.style.width = birdWidth + "px";
+            bird.style.height = birdHeight + "px";
+        }
+    }
+
+    // ============================================
+    // GAME OVER LOGIC
+    // ============================================
+    /**
+     * stopGame - Ends the game and shows game over screen
+     */
+    function stopGame() {
+        gameOver = true;
+        
+        clearInterval(timerInterval);
+        
+        finalScoreDisplay.textContent = score;
+        gameOverScreen.style.display = "block";
+        
+        shooting = false;
+        arrow.style.display = "none";
+    }
+
+    // ============================================
+    // GAME RESET
+    // ============================================
+    /**
+     * resetGame - Resets all variables and restarts game
+     * Called when "Play Again" button is clicked
+     */
+    function resetGame() {
+        // Reset all game state variables
+        score = 0;
+        timeLeft = 60;
+        gameOver = false;
+        gameStarted = true;  // Game starts immediately when restarting
+        shooting = false;
+        birdSpeed = 2;
+        birdWidth = 80;
+        birdHeight = 80;
+        birdY = window.innerHeight / 2;
+        
+        // Reset displays
+        scoreDisplay.textContent = score;
+        timeDisplay.textContent = timeLeft;
+        bird.style.width = birdWidth + "px";
+        bird.style.height = birdHeight + "px";
+        
+        // Hide game over screen
+        gameOverScreen.style.display = "none";
+        
+        // Restart timer
+        startTimer();
+    }
+
+    // ============================================
+    // MAIN GAME LOOP
+    // ============================================
+    /**
+     * gameLoop - Main game loop that runs every frame
+     * Updates all game elements and checks conditions
+     */
+    function gameLoop() {
+        // Only update game if it has started
+        if (gameStarted && !gameOver) {
+            moveBird();
+
+            if (shooting) {
+                arrowX += velocityX;
+                arrowY += velocityY;
+
+                checkCollision();
+
+                if (arrowX > window.innerWidth || arrowX < 0 || 
+                    arrowY > window.innerHeight || arrowY < 0) {
+                    shooting = false;
+                    arrow.style.display = "none";
+                } else {
+                    arrow.style.left = arrowX + "px";
+                    arrow.style.top = arrowY + "px";
+                }
             }
         }
 
         requestAnimationFrame(gameLoop);
     }
     
-    StartGame()
+    // Initialize game (but don't start until first click)
+    StartGame();
 </script>
 </body>
 </html>
