@@ -4,25 +4,32 @@
     <meta charset="UTF-8">
     <title>Archery Game</title>
     <!--link rel="stylesheet" href="style.css"-->
-    <style>
-        body {
-            margin: 0;
-            background: skyblue; 
-        }
+<style>
+    body {
+        margin: 0;
+        background: skyblue; 
+    }
 
-        #bow {
-            position: absolute;
-            background-image: url("bird.avif");
-            background-size: contain;
-            position: absolute;
-            width: 100px;
-            height: 100px;
-            transform-origin: center center;
-            top: 50%;
-            left: 10px;
+    #bow {
+        position: absolute;
+        background-image: url("bird.avif");
+        background-size: contain;
+        width: 100px;
+        height: 100px;
+        transform-origin: center center;
+        top: 50%;
+        left: 10px;
+    }
 
-        }
-    </style>
+    #arrow {
+        position: absolute;
+        background-color: brown; /* or use background-image: url(bird.avif); */
+        background-size: contain;
+        width: 50px;  /* Make it visible */
+        height: 5px;
+        display: none; /* Hide until shot */
+    }
+</style>
 </head>
 <body>
 
@@ -45,34 +52,78 @@
 
 
 
-    <script >
+    <script>
+    const arrow = document.getElementById("arrow");
+    const bow = document.getElementById("bow");
+
+    let shooting = false;
+    let arrowX = 0;
+    let arrowY = 0;
+    let velocityX = 0;
+    let velocityY = 0;
+    let currentAngle = 0;
+
+    function StartGame(){
+        document.addEventListener("mousemove", event => {
+            currentAngle = RotateBow(event.clientX, event.clientY);
+        });
         
+        document.addEventListener("click", e => {
+            if (!shooting) {  // Only shoot if no arrow in flight
+                shootArrow();
+            }
+        });
 
-        function StartGame(){
-            document.addEventListener("mousemove" , event =>{
-                RotateBow( event.clientX, event.clientY)
-            });
-           
+        requestAnimationFrame(gameLoop);
+    }
+
+    function RotateBow(X, Y) {
+        const rect = bow.getBoundingClientRect();
+        const centreBowX = rect.left + rect.width / 2;
+        const centreBowY = rect.top + rect.height / 2;
+
+        const P = X - centreBowX;
+        const B = Y - centreBowY;
+
+        const angle = Math.atan2(B, P);
+        bow.style.transform = `rotate(${angle}rad)`;
+        return angle;  // Return angle for shooting
+    }
+
+    function shootArrow() {
+        const rect = bow.getBoundingClientRect();
+        arrowX = rect.left + rect.width / 2;
+        arrowY = rect.top + rect.height / 2;
+        
+        const speed = 10;
+        velocityX = Math.cos(currentAngle) * speed;
+        velocityY = Math.sin(currentAngle) * speed;
+        
+        shooting = true;
+        arrow.style.display = "block";
+        arrow.style.transform = `rotate(${currentAngle}rad)`;
+    }
+
+    function gameLoop() {
+        if (shooting) {
+            arrowX += velocityX;
+            arrowY += velocityY;
+
+            // Check if off-screen
+            if (arrowX > window.innerWidth || arrowX < 0 || 
+                arrowY > window.innerHeight || arrowY < 0) {
+                shooting = false;
+                arrow.style.display = "none";
+            } else {
+                arrow.style.left = arrowX + "px";
+                arrow.style.top = arrowY + "px";
+            }
         }
-        function RotateBow(X, Y)
-        {   
-            const bow = document.getElementById("bow");
-            const rect = bow.getBoundingClientRect();
-            //const bowX = rect.left;
-            //const bowY = rect.top;
-            
-            const centreBowX = (rect.left + rect.width)/2;
-            const centreBowY = (rect.top + rect.height)/2;
 
-            // angle between mouse and bow
-            const P = X - centreBowX;
-            const B = Y - centreBowY;
-
-            const angle = Math.atan2(B,P);
-            bow.style.transform = `rotate(${angle}rad)`;
-            
-        }
-        StartGame()
-    </script>
+        requestAnimationFrame(gameLoop);
+    }
+    
+    StartGame()
+</script>
 </body>
 </html>
